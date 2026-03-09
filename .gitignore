@@ -1,7 +1,7 @@
 # Dependencies
 node_modules
 package-lock.json
-
+uv.lock
 # Local env files
 .env
 .env.local
