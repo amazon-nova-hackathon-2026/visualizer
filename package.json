@@ -1,0 +1,19 @@
+{
+  "name": "visualizer",
+  "private": true,
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.8.14"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "npm@11.10.0",
+  "workspaces": [
+    "apps/*"
+  ]
+}
