@@ -1,19 +1,17 @@
-import os
 import json
-from dotenv import load_dotenv
 from strands import Agent
 from strands.models import BedrockModel
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
+from constants import BEDROCK_MODEL_ID, BEDROCK_REGION_NAME
 from prompts import SYSTEM_PROMPT
 from websearch import WebSearchClient
 
-load_dotenv()
 app = BedrockAgentCoreApp()
 
 model = BedrockModel(
-    model_id=os.getenv("BEDROCK_MODEL_ID", "us.amazon.nova-pro-v1:0"),
-    region_name=os.getenv("BEDROCK_REGION_NAME"),
+    model_id=BEDROCK_MODEL_ID,
+    region_name=BEDROCK_REGION_NAME,
     streaming=False
 )
 agent = Agent(

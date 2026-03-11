@@ -1,12 +1,24 @@
 import os
+import json
+import boto3
 from typing import Dict
 from tavily import TavilyClient
 from dotenv import load_dotenv
 
+from constants import SECRETS_MANAGER_SECRET_NAME
+
+if os.environ.get("LOCAL_DEV") == "1":
+    load_dotenv()
+
 class WebSearchClient:
     def __init__(self):
-        load_dotenv()
-        self.tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        if os.environ.get("LOCAL_DEV") == "1":
+            self.tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+        else:
+            client = boto3.client("secretsmanager", region_name="us-west-2")
+            response = client.get_secret_value(SecretId=SECRETS_MANAGER_SECRET_NAME)
+            secret_dict = json.loads(response["SecretString"])
+            self.tavily_client = TavilyClient(api_key=secret_dict["TAVILY_API_KEY"])
 
     def search(self, query):
         visual = self.tavily_client.search(
