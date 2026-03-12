@@ -1,6 +1,6 @@
 import boto3
 import json
-from config import Config
+from config.config import Config
 
 
 class AgentClient:
@@ -15,8 +15,6 @@ class AgentClient:
             "runtimeSessionId": session_id,
             "payload": payload,
         }
-        if Config.AGENT_QUALIFIER:
-            kwargs["qualifier"] = Config.AGENT_QUALIFIER
 
         response = self.client.invoke_agent_runtime(**kwargs)
         body = response["response"].read()
