@@ -1,6 +1,7 @@
 import asyncio
-from config import Config
+from config.config import Config
 from nova_act import ActAgentError, ActClientError, NovaAct
+
 
 class NovaRunner:
     def __init__(self, ws, session_id: str, plan: dict):
@@ -60,4 +61,3 @@ class NovaRunner:
 
             self.cdp.send("Page.stopScreencast")
             await self.ws.send_json({"type": "done"})
-

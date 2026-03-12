@@ -1,6 +1,6 @@
-from agent_client import AgentClient
-from nova_runner import NovaRunner
-from session_manager import SessionManager
+from apps.backend.services.agent_client import AgentClient
+from apps.backend.core.nova_runner import NovaRunner
+from apps.backend.services.session_manager import SessionManager
 
 agent_client = AgentClient()
 session_manager = SessionManager()

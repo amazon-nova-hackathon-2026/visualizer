@@ -2,8 +2,8 @@ import asyncio
 from flask import Flask, json, jsonify
 from flask_sock import Sock
 
-from session_manager import SessionManager
-from ws_handler import handle_explain
+from apps.backend.services.session_manager import SessionManager
+from apps.backend.core.ws_handler import handle_explain
 
 app = Flask("backend_app")
 sock = Sock(app)
