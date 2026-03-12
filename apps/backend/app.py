@@ -1,37 +1,45 @@
-from flask import Flask, jsonify
-import redis
-import uuid
+import asyncio
+from flask import Flask, json, jsonify
+from flask_sock import Sock
+
+from session_manager import SessionManager
+from ws_handler import handle_explain
 
 app = Flask("backend_app")
-redis_cache_for_backend = redis.Redis(
-    host="localhost", port=6379, decode_responses=True
-)
+sock = Sock(app)
+session_manager = SessionManager()
 
 
 @app.route("/uni/create-session", methods=["POST"])
 def create_session_for_user():
-    session_id = str(uuid.uuid4())
-    redis_cache_for_backend.set(session_id, "active", ex=3600)
-    return jsonify(
-        {"session_id": session_id},
-        {"code": 201},
-        {"message": "Session created successfully!"},
+    session_id = session_manager.create_session()
+    return (
+        jsonify(
+            {"session_id": session_id},
+            {"message": "Session created successfully!"},
+        ),
+        201,
     )
 
 
 @app.route("/uni/validate-session/<session_id>", methods=["GET"])
 def validate_session(session_id):
-    session_status = redis_cache_for_backend.get(session_id)
-    if session_status is None:
-        return jsonify(
-            {"code": 404},
-            {"Error": "Your session doesn't exist. Please create a new session."},
-        )
-    return jsonify(
-        {"session_id": session_id},
-        {"code": 200},
-        {"message": f"The session: {session_id} is valid!"},
-    )
+    session = session_manager.get_session(session_id)
+    if not session:
+        return jsonify({"code": 404, "error": "Session not found"}), 404
+    return jsonify({"session_id": session_id, "session": session})
+
+
+@sock.route("/uni/explain/<session_id>")
+def explain(ws, session_id):
+    data = json.loads(ws.receive())
+    prompt = data.get("prompt")
+
+    if not prompt:
+        ws.send(json.dumps({"type": "error", "message": "No prompt provided"}))
+        return
+
+    asyncio.run(handle_explain(ws, session_id, prompt))
 
 
 if __name__ == "__main__":
