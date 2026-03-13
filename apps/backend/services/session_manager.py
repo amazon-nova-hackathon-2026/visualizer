@@ -3,6 +3,9 @@ import uuid
 import json
 
 from config.config import Config
+from config.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class SessionManager:
@@ -19,13 +22,18 @@ class SessionManager:
             Config.REDIS_TTL,
             json.dumps({"status": "active"}),
         )
+        logger.info("Session created: %s (TTL=%ds)", session_id, Config.REDIS_TTL)
         return session_id
 
     def get_session(self, session_id: str) -> dict | None:
         session_key_value = f"Session:{session_id}"
         session_data = self.redis.get(session_key_value)
 
-        print(session_data)
+        if session_data is None:
+            logger.warning("Session not found in Redis: %s", session_id)
+            return {}
+
+        logger.debug("Raw session data for %s: %s", session_id, session_data)
 
         if isinstance(session_data, bytes):
             session_data = session_data.decode("utf-8", errors="ignore")
@@ -34,6 +42,7 @@ class SessionManager:
             try:
                 return json.loads(session_data)
             except json.JSONDecodeError:
+                logger.warning("Failed to parse session data for %s, falling back to raw value", session_id)
                 if session_data == "active":
                     return {"status": "active"}
                 return {}
@@ -44,6 +53,9 @@ class SessionManager:
             self.redis.setex(
                 f"Session:{session_id}", Config.REDIS_TTL, json.dumps(plan)
             )
+            logger.info("Plan saved for session %s", session_id)
+        else:
+            logger.warning("Attempted to save plan for invalid session %s", session_id)
 
     def validate_session(self, session_id: str) -> bool:
         return session_id is not None and session_id != ""
