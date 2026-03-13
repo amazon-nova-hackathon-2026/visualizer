@@ -1,1 +1,1 @@
-SECRETS_MANAGER_SECRET_NAME="viz/prod/backend"
+SECRETS_MANAGER_SECRET_NAME = "viz/prod/backend"

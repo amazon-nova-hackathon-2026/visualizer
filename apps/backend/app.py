@@ -1,46 +1,45 @@
 import asyncio
-from flask import Flask, json, jsonify
-from flask_sock import Sock
 
-from apps.backend.services.session_manager import SessionManager
-from apps.backend.core.ws_handler import handle_explain
+import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
-app = Flask("backend_app")
-sock = Sock(app)
+from services.session_manager import SessionManager
+from core.ws_handler import handle_explain
+
+app = FastAPI()
 session_manager = SessionManager()
 
 
-@app.route("/uni/create-session", methods=["POST"])
-def create_session_for_user():
+@app.post("/uni/create-session")
+async def create_session_for_user():
     session_id = session_manager.create_session()
-    return (
-        jsonify(
-            {"session_id": session_id},
-            {"message": "Session created successfully!"},
-        ),
-        201,
-    )
+    return {"session_id": session_id}
 
 
-@app.route("/uni/validate-session/<session_id>", methods=["GET"])
-def validate_session(session_id):
+@app.get("/uni/validate-session/{session_id}")
+async def validate_session(session_id: str):
     session = session_manager.get_session(session_id)
     if not session:
-        return jsonify({"code": 404, "error": "Session not found"}), 404
-    return jsonify({"session_id": session_id, "session": session})
+        return {"code": 404, "error": "Session not found"}
+    return {"session_id": session_id, "session": session}
 
 
-@sock.route("/uni/explain/<session_id>")
-def explain(ws, session_id):
-    data = json.loads(ws.receive())
-    prompt = data.get("prompt")
+@app.websocket("/uni/explain/{session_id}")
+async def explain(ws: WebSocket, session_id: str):
+    await ws.accept()
+    try:
+        data = await ws.receive_json()
+        prompt = data.get("prompt")
 
-    if not prompt:
-        ws.send(json.dumps({"type": "error", "message": "No prompt provided"}))
-        return
+        if not prompt:
+            await ws.send_json({"type": "error", "message": "No prompt provided"})
+            return
 
-    asyncio.run(handle_explain(ws, session_id, prompt))
+        await handle_explain(ws, session_id, prompt)
+
+    except WebSocketDisconnect:
+        print(f"WebSocket disconnected for session: {session_id}")
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=8080, reload=True)

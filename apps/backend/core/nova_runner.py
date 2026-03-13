@@ -1,10 +1,12 @@
 import asyncio
+
+from fastapi import WebSocket
 from config.config import Config
 from nova_act import ActAgentError, ActClientError, NovaAct
 
 
 class NovaRunner:
-    def __init__(self, ws, session_id: str, plan: dict):
+    def __init__(self, ws: WebSocket, session_id: str, plan: dict):
         self.ws = ws
         self.session_id = session_id
         self.steps = plan.get("steps", [])
@@ -16,7 +18,10 @@ class NovaRunner:
 
     async def run(self):
         with NovaAct(
-            starting_page=self.config.STARTING_PAGE, headless=True, tty=False
+            starting_page=self.config.STARTING_PAGE,
+            nova_act_api_key=self.config.NOVA_ACT_API_KEY,
+            headless=True,
+            tty=False,
         ) as nova:
             page = nova.page
             self.cdp = page.context.new_cdp_session(page)
@@ -30,7 +35,7 @@ class NovaRunner:
 
             for i, step in enumerate(self.steps):
                 try:
-                    nova.act(step["query"])
+                    await asyncio.to_thread(nova.act, step["query"])
                 except Exception as e:
                     await self.ws.send_json(
                         {
