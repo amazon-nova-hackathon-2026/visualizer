@@ -18,7 +18,7 @@ class Config:
 
         NOVA_ACT_API_KEY = os.getenv("NOVA_ACT_API_KEY", "nova-act-key")
     else:
-        client = boto3.client("secretsmanager", region_name="us-west-2")
+        client = boto3.client("secretsmanager", region_name="us-west-2")  # type: ignore
         response = client.get_secret_value(SecretId=SECRETS_MANAGER_SECRET_NAME)
         secret_dict = json.loads(response["SecretString"])
 

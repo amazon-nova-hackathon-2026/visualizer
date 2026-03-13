@@ -42,7 +42,10 @@ class SessionManager:
             try:
                 return json.loads(session_data)
             except json.JSONDecodeError:
-                logger.warning("Failed to parse session data for %s, falling back to raw value", session_id)
+                logger.warning(
+                    "Failed to parse session data for %s, falling back to raw value",
+                    session_id,
+                )
                 if session_data == "active":
                     return {"status": "active"}
                 return {}
@@ -58,4 +61,8 @@ class SessionManager:
             logger.warning("Attempted to save plan for invalid session %s", session_id)
 
     def validate_session(self, session_id: str) -> bool:
-        return session_id is not None and session_id != ""
+        if not session_id:
+            return False
+
+        session_key_value = f"Session:{session_id}"
+        return self.redis.exists(session_key_value) == 1

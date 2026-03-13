@@ -9,7 +9,11 @@ logger = get_logger(__name__)
 class AgentClient:
     def __init__(self):
         self.client = boto3.client("bedrock-agentcore", region_name=Config.AWS_REGION)
-        logger.debug("AgentClient initialised (region=%s, arn=%s)", Config.AWS_REGION, Config.AGENT_RUNTIME_ARN)
+        logger.debug(
+            "AgentClient initialised (region=%s, arn=%s)",
+            Config.AWS_REGION,
+            Config.AGENT_RUNTIME_ARN,
+        )
 
     def invoke(self, prompt: str, session_id: str) -> dict:
         logger.info("Invoking agent runtime for session %s", session_id)
@@ -25,8 +29,14 @@ class AgentClient:
             response = self.client.invoke_agent_runtime(**kwargs)
             body = response["response"].read()
             result = json.loads(body)
-            logger.info("Agent runtime responded for session %s with %d steps", session_id, len(result.get("steps", [])))
+            logger.info(
+                "Agent runtime responded for session %s with %d steps",
+                session_id,
+                len(result.get("steps", [])),
+            )
             return result
         except Exception:
-            logger.exception("Agent runtime invocation failed for session %s", session_id)
+            logger.exception(
+                "Agent runtime invocation failed for session %s", session_id
+            )
             raise

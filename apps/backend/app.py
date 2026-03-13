@@ -32,6 +32,11 @@ async def validate_session(session_id: str):
 
 @app.websocket("/uni/explain/{session_id}")
 async def explain(ws: WebSocket, session_id: str):
+    if not session_manager.validate_session(session_id):
+        logger.error("Invalid or expired session for WebSocket connection: %s", session_id)
+        await ws.close(code=1008, reason="Invalid or expired session")
+        return
+
     await ws.accept()
     logger.info("WebSocket connected for session %s", session_id)
 
@@ -51,7 +56,9 @@ async def explain(ws: WebSocket, session_id: str):
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected for session %s", session_id)
     except Exception:
-        logger.exception("Unhandled error during explain flow for session %s", session_id)
+        logger.exception(
+            "Unhandled error during explain flow for session %s", session_id
+        )
         await ws.send_json({"type": "error", "message": "Internal server error"})
 
 
