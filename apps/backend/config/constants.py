@@ -1,0 +1,1 @@
+SECRETS_MANAGER_SECRET_NAME = "viz/prod/backend"
