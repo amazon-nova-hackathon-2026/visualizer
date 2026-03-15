@@ -6,7 +6,7 @@ import VideoPanel from '@/components/VideoPanel';
 export default function SearchPage() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('sessionId');
-
+  const prompt = searchParams.get('prompt');
   const [isValid, setIsValid] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -88,7 +88,7 @@ export default function SearchPage() {
       </header>
 
       <div style={styles.layout}>
-        <VideoPanel />
+        <VideoPanel sessionId={sessionId} prompt={prompt} />
 
         {/* Simplified Inline ResponseBox */}
         <div style={styles.chatContainer}>

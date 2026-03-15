@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 
 export default function SearchBar() {
   const [loading, setLoading] = useState(false);
+  const[query, setQuery] = useState('');
   const router = useRouter();
 
   const handleStartSession = async () => {
@@ -20,7 +21,7 @@ export default function SearchBar() {
       const sessionId = Array.isArray(data) ? data[0].session_id : data.session_id;
 
       if (sessionId) {
-        window.open(`/search?sessionId=${sessionId}`, '_blank');
+        router.push(`/search?sessionId=${sessionId}&prompt=${encodeURIComponent(query)}`);
       } else {
         alert("Session ID not returned from backend.");
       }
