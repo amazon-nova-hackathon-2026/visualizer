@@ -1,8 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { speakWithElevenLabs } from "@/utils/tts";
-
-const ELEVENLABS_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
+import { speakWithElevenLabs } from "@/utils/TextToSpeech";
 
 export default function VideoPanel({ sessionId, prompt }) {
   const canvasRef = useRef(null);
@@ -32,10 +30,8 @@ export default function VideoPanel({ sessionId, prompt }) {
         case "plan":
           setStatus("running");
           setStep({ current: 0, total: msg.total_steps });
-          // Announce the topic on start
           await speakWithElevenLabs(
-            `Starting visual walkthrough of ${msg.topic}. ${msg.total_steps} steps.`,
-            ELEVENLABS_KEY
+            `Starting visual walkthrough of ${msg.topic}. ${msg.total_steps} steps.`
           ).catch(() => setTtsError(true));
           break;
 
@@ -52,23 +48,19 @@ export default function VideoPanel({ sessionId, prompt }) {
         case "narration": {
           setNarration(msg.narration);
           setStep({ current: msg.step + 1, total: msg.total });
-
-          // Speak the narration — await so ACK fires only after audio ends
           try {
-            await speakWithElevenLabs(msg.narration, ELEVENLABS_KEY);
+            await speakWithElevenLabs(msg.narration);
           } catch (e) {
             console.warn("TTS failed, sending ACK anyway:", e);
             setTtsError(true);
           }
-
-          // ACK tells backend: narration heard, proceed to next step
           ws.send(JSON.stringify({ type: "ack" }));
           break;
         }
 
         case "done":
           setStatus("done");
-          await speakWithElevenLabs("Visual walkthrough complete.", ELEVENLABS_KEY)
+          await speakWithElevenLabs("Visual walkthrough complete.")
             .catch(() => {});
           ws.close();
           break;
@@ -127,58 +119,15 @@ export default function VideoPanel({ sessionId, prompt }) {
 }
 
 const styles = {
-  wrapper: {
-    width: "100%",
-    backgroundColor: "#0a0a0a",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "12px",
-    padding: "24px",
-    borderRadius: "12px",
-  },
-  screen: {
-    width: "100%",
-    maxWidth: "900px",
-    aspectRatio: "16/9",
-    backgroundColor: "#111",
-    borderRadius: "8px",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
+  wrapper: { width: "100%", backgroundColor: "#0a0a0a", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "24px", borderRadius: "12px" },
+  screen: { width: "100%", maxWidth: "900px", aspectRatio: "16/9", backgroundColor: "#111", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
   canvas: { width: "100%", height: "100%", objectFit: "contain" },
   placeholder: { color: "#555", fontSize: "1rem" },
-  narrationBar: {
-    display: "flex",
-    alignItems: "flex-start",
-    gap: "12px",
-    maxWidth: "900px",
-    width: "100%",
-    background: "#1a1a1a",
-    borderRadius: "8px",
-    padding: "12px 16px",
-  },
-  stepBadge: {
-    background: "#4285f4",
-    color: "#fff",
-    borderRadius: "999px",
-    padding: "2px 10px",
-    fontSize: "0.75rem",
-    whiteSpace: "nowrap",
-  },
+  narrationBar: { display: "flex", alignItems: "flex-start", gap: "12px", maxWidth: "900px", width: "100%", background: "#1a1a1a", borderRadius: "8px", padding: "12px 16px" },
+  stepBadge: { background: "#4285f4", color: "#fff", borderRadius: "999px", padding: "2px 10px", fontSize: "0.75rem", whiteSpace: "nowrap" },
   narrationText: { color: "#ccc", fontSize: "0.9rem", margin: 0, lineHeight: "1.5" },
-  statusRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: "8px",
-    fontSize: "0.8rem",
-  },
-  statusDot: (s) => ({
-    width: 8, height: 8, borderRadius: "50%",
-    background: s === "running" ? "#34d399" : s === "error" ? "#f87171" : "#555",
-  }),
+  statusRow: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.8rem" },
+  statusDot: (s) => ({ width: 8, height: 8, borderRadius: "50%", background: s === "running" ? "#34d399" : s === "error" ? "#f87171" : "#555" }),
   statusLabel: { color: "#555" },
   ttsWarning: { color: "#f59e0b", marginLeft: "8px" },
 };
