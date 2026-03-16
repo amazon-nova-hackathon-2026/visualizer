@@ -1,120 +1,92 @@
+import os
 import time
-import asyncio
 import base64
+import asyncio
 import threading
+import subprocess
 from fastapi import WebSocket
+from nova_act import NovaAct, ActAgentError, ActClientError, ActExecutionError, ActServerError
 from config.config import Config
 from config.logging import get_logger
-from nova_act import (
-    ActAgentError,
-    ActClientError,
-    ActExecutionError,
-    ActServerError,
-    NovaAct,
-)
 
 logger = get_logger(__name__)
+
+DISPLAY = ":99"
+SCREEN_WIDTH = 1600
+SCREEN_HEIGHT = 813
 
 
 class NovaRunner:
     def __init__(self, ws: WebSocket, session_id: str, plan: dict):
         self.ws = ws
-        self.session_id = session_id
         self.steps = plan.get("steps", [])
         self.config = Config()
         self.loop = asyncio.get_event_loop()
         self.polling = False
 
-    def _poll_screenshots(self, nova: NovaAct):
-        interval = 1 / 10
+    def _send(self, data: dict):
+        asyncio.run_coroutine_threadsafe(self.ws.send_json(data), self.loop).result()
 
+    def _receive(self, timeout: float = 30.0):
+        return asyncio.run_coroutine_threadsafe(
+            asyncio.wait_for(self.ws.receive_json(), timeout=timeout), self.loop
+        ).result()
+
+    def _poll(self):
         while self.polling:
             start = time.time()
-            try:
-                screenshot = nova.page.screenshot(type="jpeg", quality=60)
-                frame = base64.b64encode(screenshot).decode()
-                asyncio.run_coroutine_threadsafe(
-                    self.ws.send_json({"type": "frame", "data": frame}), self.loop
-                ).result()
-            except Exception:
-                break
+            result = subprocess.run(["scrot", "-", "--display", DISPLAY], capture_output=True)
+            if result.returncode == 0:
+                self._send({"type": "frame", "data": base64.b64encode(result.stdout).decode()})
+            time.sleep(max(0, 0.1 - (time.time() - start)))
 
-            elapsed = time.time() - start
-            time.sleep(max(0, interval - elapsed))
+    def _run(self):
+        if os.path.exists(f"/tmp/.X{DISPLAY.replace(':', '')}-lock"):
+            os.remove(f"/tmp/.X{DISPLAY.replace(':', '')}-lock")
 
-    def _run_all(self):
+        xvfb = subprocess.Popen(["Xvfb", DISPLAY, "-screen", "0", f"{SCREEN_WIDTH}x{SCREEN_HEIGHT}x24"])
+        os.environ["DISPLAY"] = DISPLAY
+        time.sleep(1)
+
         with NovaAct(
             starting_page=self.config.STARTING_PAGE,
             nova_act_api_key=self.config.NOVA_ACT_API_KEY,
-            headless=True,
+            headless=False,
             tty=False,
+            screen_width=SCREEN_WIDTH,
+            screen_height=SCREEN_HEIGHT,
         ) as nova:
             self.polling = True
-            poll_thread = threading.Thread(
-                target=self._poll_screenshots, args=(nova,), daemon=True
-            )
+            poll_thread = threading.Thread(target=self._poll, daemon=True)
             poll_thread.start()
 
             try:
                 for i, step in enumerate(self.steps):
-                    success = self._execute_step(nova, step, i)
-                    if not success:
+                    query = step.get("query", "").strip()
+                    if not query:
+                        continue
+                    try:
+                        nova.act(query)
+                    except (ActAgentError, ActClientError) as e:
+                        self._send({"type": "error", "step": i, "message": str(e), "retriable": True})
+                        break
+                    except (ActExecutionError, ActServerError) as e:
+                        self._send({"type": "error", "step": i, "message": str(e), "retriable": False})
                         break
 
                     if step.get("narration"):
-                        if not self._narrate(step["narration"], i):
+                        self._send({"type": "narration", "step": i, "total": len(self.steps), "narration": step["narration"]})
+                        try:
+                            self._receive(timeout=30.0)
+                        except TimeoutError:
+                            self._send({"type": "error", "message": "ACK timeout"})
                             break
             finally:
                 self.polling = False
                 poll_thread.join()
+                xvfb.terminate()
 
-        asyncio.run_coroutine_threadsafe(
-            self.ws.send_json({"type": "done"}), self.loop
-        ).result()
-
-    def _execute_step(self, nova: NovaAct, step: dict, index: int) -> bool:
-        try:
-            nova.act(step["query"])
-            return True
-        except (ActAgentError, ActClientError, ActExecutionError, ActServerError) as e:
-            retriable = isinstance(e, (ActAgentError, ActClientError))
-            asyncio.run_coroutine_threadsafe(
-                self.ws.send_json(
-                    {
-                        "type": "error",
-                        "step": index,
-                        "message": str(e),
-                        "retriable": retriable,
-                    }
-                ),
-                self.loop,
-            ).result()
-        return False
-
-    def _narrate(self, narration: str, step_index: int) -> bool:
-        asyncio.run_coroutine_threadsafe(
-            self.ws.send_json(
-                {
-                    "type": "narration",
-                    "step": step_index,
-                    "total": len(self.steps),
-                    "narration": narration,
-                }
-            ),
-            self.loop,
-        ).result()
-
-        try:
-            asyncio.run_coroutine_threadsafe(
-                asyncio.wait_for(self.ws.receive_json(), timeout=30.0), self.loop
-            ).result()
-            return True
-        except TimeoutError:
-            asyncio.run_coroutine_threadsafe(
-                self.ws.send_json({"type": "error", "message": "ACK timeout"}),
-                self.loop,
-            ).result()
-            return False
+        self._send({"type": "done"})
 
     async def run(self):
-        await asyncio.to_thread(self._run_all)
+        await asyncio.to_thread(self._run)
