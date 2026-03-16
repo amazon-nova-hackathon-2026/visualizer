@@ -19,7 +19,6 @@ SCREEN_HEIGHT = 813
 class NovaRunner:
     def __init__(self, ws: WebSocket, session_id: str, plan: dict):
         self.ws = ws
-        self.session_id = session_id
         self.steps = plan.get("steps", [])
         self.config = Config()
         self.loop = asyncio.get_event_loop()
