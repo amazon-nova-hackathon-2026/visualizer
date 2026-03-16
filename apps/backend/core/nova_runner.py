@@ -4,7 +4,7 @@ import base64
 import asyncio
 import threading
 import subprocess
-from fastapi import WebSocket
+from fastapi import WebSocket, WebSocketDisconnect
 from nova_act import NovaAct, ActAgentError, ActClientError, ActExecutionError, ActServerError
 from config.config import Config
 from config.logging import get_logger
@@ -23,28 +23,56 @@ class NovaRunner:
         self.config = Config()
         self.loop = asyncio.get_event_loop()
         self.polling = False
+        self.stop_event = threading.Event()
+        self.xvfb = None
+
+    def stop(self, reason: str = ""):
+        if reason:
+            logger.info("Stopping Nova runner for session %s: %s", self.session_id, reason)
+        self.stop_event.set()
+        self.polling = False
+
+        if self.xvfb and self.xvfb.poll() is None:
+            self.xvfb.terminate()
 
     def _send(self, data: dict):
-        asyncio.run_coroutine_threadsafe(self.ws.send_json(data), self.loop).result()
+        if self.stop_event.is_set():
+            return
+
+        try:
+            asyncio.run_coroutine_threadsafe(self.ws.send_json(data), self.loop).result()
+        except Exception as e:
+            self.stop(f"websocket send failed: {e}")
+            raise
 
     def _receive(self, timeout: float = 30.0):
-        return asyncio.run_coroutine_threadsafe(
-            asyncio.wait_for(self.ws.receive_json(), timeout=timeout), self.loop
-        ).result()
+        if self.stop_event.is_set():
+            raise WebSocketDisconnect(code=1001)
+
+        try:
+            return asyncio.run_coroutine_threadsafe(
+                asyncio.wait_for(self.ws.receive_json(), timeout=timeout), self.loop
+            ).result()
+        except Exception as e:
+            self.stop(f"websocket receive failed: {e}")
+            raise
 
     def _poll(self):
-        while self.polling:
+        while self.polling and not self.stop_event.is_set():
             start = time.time()
             result = subprocess.run(["scrot", "-", "--display", DISPLAY], capture_output=True)
             if result.returncode == 0:
-                self._send({"type": "frame", "data": base64.b64encode(result.stdout).decode()})
+                try:
+                    self._send({"type": "frame", "data": base64.b64encode(result.stdout).decode()})
+                except Exception:
+                    break
             time.sleep(max(0, 0.1 - (time.time() - start)))
 
     def _run(self):
         if os.path.exists(f"/tmp/.X{DISPLAY.replace(':', '')}-lock"):
             os.remove(f"/tmp/.X{DISPLAY.replace(':', '')}-lock")
 
-        xvfb = subprocess.Popen(["Xvfb", DISPLAY, "-screen", "0", f"{SCREEN_WIDTH}x{SCREEN_HEIGHT}x24"])
+        self.xvfb = subprocess.Popen(["Xvfb", DISPLAY, "-screen", "0", f"{SCREEN_WIDTH}x{SCREEN_HEIGHT}x24"])
         os.environ["DISPLAY"] = DISPLAY
         time.sleep(1)
 
@@ -62,6 +90,10 @@ class NovaRunner:
 
             try:
                 for i, step in enumerate(self.steps):
+                    if self.stop_event.is_set():
+                        logger.info("Stopping step loop for session %s", self.session_id)
+                        break
+
                     query = step.get("query", "").strip()
                     if not query:
                         continue
@@ -81,12 +113,17 @@ class NovaRunner:
                         except TimeoutError:
                             self._send({"type": "error", "message": "ACK timeout"})
                             break
+                        except WebSocketDisconnect:
+                            self.stop("websocket disconnected while waiting for ACK")
+                            break
             finally:
                 self.polling = False
                 poll_thread.join()
-                xvfb.terminate()
+                if self.xvfb and self.xvfb.poll() is None:
+                    self.xvfb.terminate()
 
-        self._send({"type": "done"})
+        if not self.stop_event.is_set():
+            self._send({"type": "done"})
 
     async def run(self):
         await asyncio.to_thread(self._run)
