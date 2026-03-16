@@ -37,7 +37,9 @@ export default function SearchBar() {
     <div style={styles.inputContainer}>
       <input
         type="text"
-        placeholder="Ask me anything!!"
+        placeholder="Example: Where is France located?"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
         style={styles.input}
         onKeyDown={(e) => {
           if (e.key === 'Enter') handleStartSession();
@@ -69,10 +71,10 @@ const styles = {
     width: '100%',
     maxWidth: '560px',
     borderRadius: '24px',
-    border: '1px solid #dfe1e5',
-    boxShadow: '0 1px 6px rgba(32, 33, 36, 0.28)',
+    border: '1px solid rgba(100, 120, 255, 0.4)',
+    boxShadow: '0 0 20px rgba(100, 120, 255, 0.15)',
     padding: '4px 8px',
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     transition: 'all 0.2s',
   },
   input: {
@@ -82,7 +84,7 @@ const styles = {
     border: 'none',
     outline: 'none',
     backgroundColor: 'transparent',
-    color: '#202124',
+    color: '#ffffff',
   },
   button: {
     display: 'flex',
@@ -93,7 +95,7 @@ const styles = {
     borderRadius: '50%',
     border: 'none',
     backgroundColor: 'transparent',
-    color: '#4285f4',
+    color: '#7b8cff',
     cursor: 'pointer',
     transition: 'background-color 0.2s',
   }
