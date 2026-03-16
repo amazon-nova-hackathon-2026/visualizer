@@ -16,7 +16,6 @@ navigates the web automatically, and narrates what it's doing — step by step, 
 No links. No walls of text. Just watch and listen.
 
 ---
-
 ## How it works
 
 1. You type a topic and hit search
@@ -37,6 +36,12 @@ No links. No walls of text. Just watch and listen.
 | AWS Bedrock (Nova LLM) | Generates the step plan |
 | Nova Act | Drives the browser, streams screenshots |
 | ElevenLabs TTS | Narrates each step out loud |
+
+---
+
+## Architecture
+
+![ThinkOva Architecture](/visualizer/apps/frontend/public/architecture%20diagram.png)
 
 ---
 
