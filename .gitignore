@@ -37,4 +37,11 @@ yarn-error.log*
 .bedrock_agentcore*
 
 # logs
-logs/
+apps/backend/logs/*
+
+# Keys
+apps/backend/keys/*
+
+send-to-server.sh
+
+tests/*

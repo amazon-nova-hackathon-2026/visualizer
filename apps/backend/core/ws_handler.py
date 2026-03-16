@@ -5,7 +5,7 @@ from core.nova_runner import NovaRunner
 from services.session_manager import SessionManager
 
 logger = get_logger(__name__)
-agent_client = AgentClient()
+# agent_client = AgentClient()
 session_manager = SessionManager()
 
 
@@ -17,7 +17,13 @@ async def handle_explain(ws: WebSocket, session_id: str, prompt: str) -> None:
 
     logger.info("Generating visual plan for session %s", session_id)
     await ws.send_json({"type": "planning", "message": "Generating visual plan"})
-    plan = agent_client.invoke(prompt, session_id)
+    # plan = agent_client.invoke(prompt, session_id)
+    plan = {
+        "topic": "human eye",
+        "steps": [
+            {"type": "action", "query": "type hello world in the search bar and hit enter", "narration": "Let's start by searching for the human eye."},
+        ]
+    }
     logger.info(
         "Received plan for session %s with %s steps",
         session_id,
