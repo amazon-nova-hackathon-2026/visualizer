@@ -9,7 +9,7 @@ Return ONLY raw JSON starting with { and ending with }. No backticks, no markdow
   "topic": "string",
   "steps": [
     { "type": "action", "query": "navigate to https://exact-url.com" },
-    { "type": "action", "query": "scroll down to the anatomy section", "narration": "The cornea does most of the focusing work — about 70% of the eye's total optical power, before light even reaches the lens." }
+    { "type": "narration", "query": "scroll down to the anatomy section", "narration": "The cornea does most of the focusing work — about 70% of the eye's total optical power, before light even reaches the lens." }
   ]
 }
 
@@ -43,7 +43,7 @@ Silent navigation (no narration):
   { "type": "action", "query": "scroll down to the anatomy section" }
 
 Concept explanation at a meaningful visual moment:
-  { "type": "action", "query": "scroll down to the retina diagram", "narration": "The retina is essentially brain tissue — it's actually an outgrowth of the brain during embryonic development, which is why damage to it is permanent." }
+  { "type": "narration", "query": "scroll down to the retina diagram", "narration": "The retina is essentially brain tissue — it's actually an outgrowth of the brain during embryonic development, which is why damage to it is permanent." }
 
 ## Flow
 Steps should flow like a lecture:
