@@ -107,14 +107,6 @@ visualizer/
 
 ---
 
-## A few things worth knowing
-
-- ElevenLabs free tier is 10k characters/month — track usage at elevenlabs.io/app/usage
-- Nova Act controls a real browser, so treat it like one
-- This was built at a hackathon — it's a working proof of concept, not production code
-
----
-
 ## Built with
 
 [Nova Act](https://nova-act.aws) · [AWS Bedrock](https://aws.amazon.com/bedrock/) · [ElevenLabs](https://elevenlabs.io) · [Next.js](https://nextjs.org) · [FastAPI](https://fastapi.tiangolo.com)
