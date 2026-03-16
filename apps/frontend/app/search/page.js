@@ -1,9 +1,22 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import VideoPanel from '@/components/VideoPanel';
 
 export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: '12px', backgroundColor: '#0a0f1e' }}>
+        <span className="spinner" style={{ width: 24, height: 24 }}></span>
+        <p style={{ color: '#94a3b8', fontSize: '0.9rem', marginTop: '8px' }}>Loading…</p>
+      </div>
+    }>
+      <SearchPageContent />
+    </Suspense>
+  );
+}
+
+function SearchPageContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('sessionId');
   const prompt = searchParams.get('prompt');
