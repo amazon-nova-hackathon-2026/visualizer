@@ -2,9 +2,24 @@
   "$schema": "https://turborepo.dev/schema.json",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
-      "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": [".next/**", "!.next/cache/**"]
+      "dependsOn": [
+        "^build"
+      ],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        ".env*"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**"
+      ],
+      "env": [
+        "BACKEND_API_BASE_URL",
+        "NEXT_PUBLIC_WS_URL",
+        "NEXT_PUBLIC_ELEVENLABS_API_KEY",
+        "NEXT_PUBLIC_VOICE_ID",
+        "NEXT_PUBLIC_BASE_URL"
+      ]
     },
     "lint": {},
     "dev": {
