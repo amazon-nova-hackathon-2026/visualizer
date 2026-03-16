@@ -1,9 +1,23 @@
 export async function speakWithElevenLabs(text) {
   const apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
   const voiceId = process.env.NEXT_PUBLIC_VOICE_ID;
+  const baseUrl =
+    (process.env.NEXT_PUBLIC_BASE_URL || "https://api.elevenlabs.io/v1/text-to-speech").replace(/\/$/, "");
+
+  if (!text || !text.trim()) return;
+
+  if (!apiKey) {
+    throw new Error("Missing NEXT_PUBLIC_ELEVENLABS_API_KEY");
+  }
+
+  if (!voiceId) {
+    throw new Error("Missing NEXT_PUBLIC_VOICE_ID");
+  }
+
+  const endpoint = `${baseUrl}/${encodeURIComponent(voiceId)}`;
 
   const response = await fetch(
-    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+    endpoint,
     {
       method: "POST",
       headers: {
@@ -23,20 +37,34 @@ export async function speakWithElevenLabs(text) {
   );
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    console.log("ElevenLabs error body:", JSON.stringify(err));
-    throw new Error(`ElevenLabs error ${response.status}: ${JSON.stringify(err)}`);
+    const rawBody = await response.text().catch(() => "");
+    let parsedBody = rawBody;
+    try {
+      parsedBody = JSON.stringify(JSON.parse(rawBody));
+    } catch {
+      // keep raw text body
+    }
+    throw new Error(`ElevenLabs error ${response.status}: ${parsedBody || "Unknown error"}`);
   }
 
-  const arrayBuffer = await response.arrayBuffer();
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+  const audioBlob = await response.blob();
+  const audioUrl = URL.createObjectURL(audioBlob);
+  const audio = new Audio(audioUrl);
+  audio.preload = "auto";
 
-  return new Promise((resolve) => {
-    const source = audioCtx.createBufferSource();
-    source.buffer = decoded;
-    source.connect(audioCtx.destination);
-    source.onended = resolve;
-    source.start(0);
+  return new Promise((resolve, reject) => {
+    audio.onended = () => {
+      URL.revokeObjectURL(audioUrl);
+      resolve();
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(audioUrl);
+      reject(new Error("Audio playback failed"));
+    };
+
+    audio.play().catch((err) => {
+      URL.revokeObjectURL(audioUrl);
+      reject(err);
+    });
   });
 }

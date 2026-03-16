@@ -6,6 +6,7 @@ export default function VideoPanel({ sessionId, prompt }) {
   const canvasRef = useRef(null);
   const wsRef = useRef(null);
   const [status, setStatus] = useState("idle");
+  const [errorMessage, setErrorMessage] = useState("");
   const [narration, setNarration] = useState("");
   const [step, setStep] = useState({ current: 0, total: 0 });
   const [ttsError, setTtsError] = useState(false);
@@ -13,11 +14,20 @@ export default function VideoPanel({ sessionId, prompt }) {
   useEffect(() => {
     if (!sessionId || !prompt) return;
 
-    const wsUrl = `${process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080"}/uni/explain/${sessionId}`;
+    const wsBaseUrl = (process.env.NEXT_PUBLIC_WS_URL || "").replace(/\/$/, "");
+    if (!wsBaseUrl) {
+      setStatus("error");
+      setErrorMessage("NEXT_PUBLIC_WS_URL is missing in frontend .env");
+      return;
+    }
+
+    let closedByDone = false;
+    const wsUrl = `${wsBaseUrl}/uni/explain/${sessionId}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
+      setErrorMessage("");
       ws.send(JSON.stringify({ prompt }));
       setStatus("planning");
     };
@@ -26,6 +36,10 @@ export default function VideoPanel({ sessionId, prompt }) {
       const msg = JSON.parse(event.data);
 
       switch (msg.type) {
+
+        case "planning":
+          setStatus("planning");
+          break;
 
         case "plan":
           setStatus("running");
@@ -62,11 +76,13 @@ export default function VideoPanel({ sessionId, prompt }) {
           setStatus("done");
           await speakWithElevenLabs("Visual walkthrough complete.")
             .catch(() => {});
+          closedByDone = true;
           ws.close();
           break;
 
         case "error":
           setStatus("error");
+          setErrorMessage(msg.message || "Backend returned an error");
           ws.close();
           break;
 
@@ -75,7 +91,17 @@ export default function VideoPanel({ sessionId, prompt }) {
       }
     };
 
-    ws.onerror = () => setStatus("error");
+    ws.onerror = () => {
+      setStatus("error");
+      setErrorMessage("WebSocket connection failed");
+    };
+
+    ws.onclose = (event) => {
+      if (!closedByDone && event.code !== 1000) {
+        setStatus("error");
+        setErrorMessage((prev) => prev || `WebSocket closed (${event.code})`);
+      }
+    };
 
     return () => {
       ws.close();
@@ -110,6 +136,7 @@ export default function VideoPanel({ sessionId, prompt }) {
       <div style={styles.statusRow}>
         <span style={styles.statusDot(status)} />
         <span style={styles.statusLabel}>{statusLabel}</span>
+        {errorMessage && <span style={styles.errorText}>{errorMessage}</span>}
         {ttsError && (
           <span style={styles.ttsWarning}>TTS quota reached — check key or usage</span>
         )}
@@ -129,5 +156,6 @@ const styles = {
   statusRow: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.8rem" },
   statusDot: (s) => ({ width: 8, height: 8, borderRadius: "50%", background: s === "running" ? "#34d399" : s === "error" ? "#f87171" : "#555" }),
   statusLabel: { color: "#555" },
+  errorText: { color: "#f87171" },
   ttsWarning: { color: "#f59e0b", marginLeft: "8px" },
 };

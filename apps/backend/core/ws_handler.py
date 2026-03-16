@@ -1,4 +1,5 @@
 from fastapi import WebSocket
+from fastapi import WebSocketDisconnect
 from config.logging import get_logger
 from services.agent_client import AgentClient
 from core.nova_runner import NovaRunner
@@ -36,5 +37,10 @@ async def handle_explain(ws: WebSocket, session_id: str, prompt: str) -> None:
 
     runner = NovaRunner(ws=ws, session_id=session_id, plan=plan)
     logger.info("Starting Nova runner for session %s", session_id)
-    await runner.run()
-    logger.info("Nova runner completed for session %s", session_id)
+    try:
+        await runner.run()
+        logger.info("Nova runner completed for session %s", session_id)
+    except WebSocketDisconnect:
+        runner.stop("websocket disconnected")
+        logger.info("WebSocket disconnected; stopped Nova runner for session %s", session_id)
+        raise

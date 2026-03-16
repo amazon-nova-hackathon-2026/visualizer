@@ -27,7 +27,7 @@ export default function SearchBar() {
       }
     } catch (error) {
       console.error(error);
-      alert("Error creating session. Make sure Flask backend is running.");
+      alert("Error creating session. Check that the backend is running and BACKEND_API_BASE_URL is correct.");
     } finally {
       setLoading(false);
     }
