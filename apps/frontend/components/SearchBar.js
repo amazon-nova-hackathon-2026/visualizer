@@ -2,12 +2,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function SearchBar() {
+export default function SearchBar({ query, setQuery }) {
   const [loading, setLoading] = useState(false);
-  const[query, setQuery] = useState('');
+  const [focused, setFocused] = useState(false);
   const router = useRouter();
 
   const handleStartSession = async () => {
+    if (!query.trim()) return;
     setLoading(true);
     try {
       const res = await fetch(`/api/create-session`, {
@@ -34,12 +35,22 @@ export default function SearchBar() {
   };
 
   return (
-    <div style={styles.inputContainer}>
+    <div
+      style={{
+        ...styles.inputContainer,
+        borderColor: focused ? 'rgba(59, 130, 246, 0.6)' : 'rgba(59, 130, 246, 0.2)',
+        boxShadow: focused
+          ? '0 0 0 1px rgba(59, 130, 246, 0.15), 0 4px 24px rgba(59, 130, 246, 0.12)'
+          : '0 2px 8px rgba(0, 0, 0, 0.2)',
+      }}
+    >
       <input
         type="text"
-        placeholder="Example: Where is France located?"
+        placeholder="Ask anything you want to learn about…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         style={styles.input}
         onKeyDown={(e) => {
           if (e.key === 'Enter') handleStartSession();
@@ -47,16 +58,19 @@ export default function SearchBar() {
       />
       <button
         onClick={handleStartSession}
-        disabled={loading}
-        style={styles.button}
+        disabled={loading || !query.trim()}
+        style={{
+          ...styles.button,
+          opacity: query.trim() ? 1 : 0.4,
+        }}
         title="Search"
       >
         {loading ? (
           <span className="spinner"></span>
         ) : (
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
           </svg>
         )}
       </button>
@@ -69,34 +83,36 @@ const styles = {
     display: 'flex',
     alignItems: 'center',
     width: '100%',
-    maxWidth: '560px',
-    borderRadius: '24px',
-    border: '1px solid rgba(100, 120, 255, 0.4)',
-    boxShadow: '0 0 20px rgba(100, 120, 255, 0.15)',
-    padding: '4px 8px',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    transition: 'all 0.2s',
+    maxWidth: '900px',
+    borderRadius: '28px',
+    border: '1px solid rgba(59, 130, 246, 0.2)',
+    padding: '3px 6px 3px 0',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backdropFilter: 'blur(12px)',
+    transition: 'border-color 0.25s ease, box-shadow 0.25s ease',
   },
   input: {
     flex: 1,
-    padding: '12px 20px',
-    fontSize: '1.1rem',
+    padding: '10px 24px',
+    fontSize: '1rem',
     border: 'none',
     outline: 'none',
     backgroundColor: 'transparent',
-    color: '#ffffff',
+    color: '#f0f2f5',
+    letterSpacing: '0.01em',
   },
   button: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    width: '40px',
-    height: '40px',
+    width: '36px',
+    height: '36px',
     borderRadius: '50%',
     border: 'none',
-    backgroundColor: 'transparent',
-    color: '#7b8cff',
+    backgroundColor: 'rgba(249, 115, 22, 0.15)',
+    color: '#f97316',
     cursor: 'pointer',
-    transition: 'background-color 0.2s',
+    transition: 'background-color 0.2s ease, opacity 0.2s ease',
+    flexShrink: 0,
   }
 };

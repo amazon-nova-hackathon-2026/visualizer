@@ -36,7 +36,6 @@ export default function VideoPanel({ sessionId, prompt }) {
       const msg = JSON.parse(event.data);
 
       switch (msg.type) {
-
         case "planning":
           setStatus("planning");
           break;
@@ -44,9 +43,6 @@ export default function VideoPanel({ sessionId, prompt }) {
         case "plan":
           setStatus("running");
           setStep({ current: 0, total: msg.total_steps });
-          await speakWithElevenLabs(
-            `Starting visual walkthrough of ${msg.topic}. ${msg.total_steps} steps.`
-          ).catch(() => setTtsError(true));
           break;
 
         case "frame": {
@@ -74,8 +70,6 @@ export default function VideoPanel({ sessionId, prompt }) {
 
         case "done":
           setStatus("done");
-          await speakWithElevenLabs("Visual walkthrough complete.")
-            .catch(() => {});
           closedByDone = true;
           ws.close();
           break;
@@ -108,54 +102,215 @@ export default function VideoPanel({ sessionId, prompt }) {
     };
   }, [sessionId, prompt]);
 
-  const statusLabel = {
-    idle: "Enter a topic to begin",
-    planning: "Generating plan…",
-    running: `Step ${step.current} of ${step.total}`,
-    done: "Complete",
-    error: "Something went wrong",
-  }[status];
+  const progress = step.total > 0 ? step.current / step.total : 0;
 
   return (
     <div style={styles.wrapper}>
-      <div style={styles.screen}>
-        {(status === "idle" || status === "planning") ? (
-          <p style={styles.placeholder}>{statusLabel}</p>
-        ) : (
-          <canvas ref={canvasRef} width={1280} height={720} style={styles.canvas} />
+      {/* Video viewport */}
+      <div style={styles.screenContainer}>
+        <div style={styles.screen}>
+          {status === "idle" || status === "planning" ? (
+            <div style={styles.placeholderWrap}>
+              {status === "planning" && (
+                <>
+                  <span className="spinner" style={{ width: 28, height: 28, marginBottom: 16 }}></span>
+                  <p style={styles.placeholderTitle}>Preparing your walkthrough</p>
+                  <p style={styles.placeholderSub}>Searching the web and building a plan…</p>
+                </>
+              )}
+              {status === "idle" && (
+                <p style={styles.placeholderTitle}>Waiting to start…</p>
+              )}
+            </div>
+          ) : (
+            <canvas ref={canvasRef} width={1600} height={813} style={styles.canvas} />
+          )}
+        </div>
+
+        {/* Progress bar — overlaid at bottom of video */}
+        {(status === "running" || status === "done") && step.total > 0 && (
+          <div style={styles.progressTrack}>
+            <div
+              style={{
+                ...styles.progressBar,
+                width: `${(status === "done" ? 1 : progress) * 100}%`,
+                backgroundColor: status === "done" ? "#34d399" : "#3b82f6",
+              }}
+            />
+          </div>
         )}
       </div>
 
-      {narration && (
-        <div style={styles.narrationBar}>
-          <span style={styles.stepBadge}>{step.current}/{step.total}</span>
-          <p style={styles.narrationText}>{narration}</p>
+      {/* Bottom bar: narration + status */}
+      <div style={styles.bottomBar}>
+        {/* Left: step + narration */}
+        <div style={styles.narrationSection}>
+          {step.total > 0 && (
+            <span style={styles.stepBadge}>
+              {status === "done" ? "✓" : `${step.current}/${step.total}`}
+            </span>
+          )}
+          <p style={styles.narrationText}>
+            {status === "done"
+              ? "Walkthrough complete"
+              : status === "error"
+                ? errorMessage || "Something went wrong"
+                : narration || (status === "planning" ? "Generating plan…" : "Waiting…")}
+          </p>
         </div>
-      )}
 
-      <div style={styles.statusRow}>
-        <span style={styles.statusDot(status)} />
-        <span style={styles.statusLabel}>{statusLabel}</span>
-        {errorMessage && <span style={styles.errorText}>{errorMessage}</span>}
-        {ttsError && (
-          <span style={styles.ttsWarning}>TTS quota reached — check key or usage</span>
-        )}
+        {/* Right: status indicators */}
+        <div style={styles.statusSection}>
+          {status === "running" && (
+            <span style={styles.liveIndicator}>
+              <span style={styles.liveDot} />
+              LIVE
+            </span>
+          )}
+          {status === "done" && (
+            <span style={styles.doneIndicator}>Complete</span>
+          )}
+          {status === "error" && (
+            <span style={styles.errorIndicator}>Error</span>
+          )}
+          {ttsError && (
+            <span style={styles.ttsWarning}>Audio unavailable</span>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
 const styles = {
-  wrapper: { width: "100%", backgroundColor: "#0a0a0a", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px", padding: "24px", borderRadius: "12px" },
-  screen: { width: "100%", maxWidth: "900px", aspectRatio: "16/9", backgroundColor: "#111", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" },
-  canvas: { width: "100%", height: "100%", objectFit: "contain" },
-  placeholder: { color: "#555", fontSize: "1rem" },
-  narrationBar: { display: "flex", alignItems: "flex-start", gap: "12px", maxWidth: "900px", width: "100%", background: "#1a1a1a", borderRadius: "8px", padding: "12px 16px" },
-  stepBadge: { background: "#4285f4", color: "#fff", borderRadius: "999px", padding: "2px 10px", fontSize: "0.75rem", whiteSpace: "nowrap" },
-  narrationText: { color: "#ccc", fontSize: "0.9rem", margin: 0, lineHeight: "1.5" },
-  statusRow: { display: "flex", alignItems: "center", gap: "8px", fontSize: "0.8rem" },
-  statusDot: (s) => ({ width: 8, height: 8, borderRadius: "50%", background: s === "running" ? "#34d399" : s === "error" ? "#f87171" : "#555" }),
-  statusLabel: { color: "#555" },
-  errorText: { color: "#f87171" },
-  ttsWarning: { color: "#f59e0b", marginLeft: "8px" },
+  wrapper: {
+    width: "100%",
+    display: "flex",
+    flexDirection: "column",
+    gap: "0px",
+  },
+  screenContainer: {
+    position: "relative",
+    width: "100%",
+    borderRadius: "16px",
+    overflow: "hidden",
+  },
+  screen: {
+    width: "100%",
+    aspectRatio: "1600/813",
+    backgroundColor: "#0f1729",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  canvas: {
+    width: "100%",
+    height: "100%",
+    display: "block",
+  },
+  placeholderWrap: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "4px",
+  },
+  placeholderTitle: {
+    color: "#94a3b8",
+    fontSize: "1rem",
+    fontWeight: 500,
+    margin: 0,
+  },
+  placeholderSub: {
+    color: "#475569",
+    fontSize: "0.85rem",
+    margin: 0,
+  },
+  progressTrack: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: "3px",
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+  },
+  progressBar: {
+    height: "100%",
+    transition: "width 0.5s ease",
+  },
+  bottomBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "16px",
+    padding: "14px 20px",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    border: "1px solid rgba(255, 255, 255, 0.06)",
+    borderTop: "none",
+    borderRadius: "0 0 16px 16px",
+  },
+  narrationSection: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    flex: 1,
+    minWidth: 0,
+  },
+  stepBadge: {
+    background: "rgba(59, 130, 246, 0.12)",
+    color: "#3b82f6",
+    borderRadius: "6px",
+    padding: "4px 10px",
+    fontSize: "0.72rem",
+    fontWeight: 700,
+    whiteSpace: "nowrap",
+    letterSpacing: "0.03em",
+    flexShrink: 0,
+  },
+  narrationText: {
+    color: "#cbd5e1",
+    fontSize: "0.85rem",
+    margin: 0,
+    lineHeight: "1.5",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+  },
+  statusSection: {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    flexShrink: 0,
+  },
+  liveIndicator: {
+    display: "flex",
+    alignItems: "center",
+    gap: "6px",
+    color: "#34d399",
+    fontSize: "0.7rem",
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    borderRadius: "50%",
+    backgroundColor: "#34d399",
+    animation: "pulse 1.5s ease infinite",
+  },
+  doneIndicator: {
+    color: "#34d399",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+  },
+  errorIndicator: {
+    color: "#f87171",
+    fontSize: "0.75rem",
+    fontWeight: 600,
+  },
+  ttsWarning: {
+    color: "#fbbf24",
+    fontSize: "0.72rem",
+  },
 };
