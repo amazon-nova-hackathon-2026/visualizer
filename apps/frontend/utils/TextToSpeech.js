@@ -1,3 +1,20 @@
+function speakWithBrowser(text) {
+  if (typeof window === "undefined" || !window.speechSynthesis) {
+    throw new Error("Speech synthesis unavailable in this browser");
+  }
+
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1;
+  utterance.pitch = 1;
+
+  return new Promise((resolve, reject) => {
+    utterance.onend = () => resolve();
+    utterance.onerror = () => reject(new Error("Browser speech synthesis failed"));
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
 export async function speakWithElevenLabs(text) {
   const apiKey = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
   const voiceId = process.env.NEXT_PUBLIC_VOICE_ID;
@@ -6,12 +23,8 @@ export async function speakWithElevenLabs(text) {
 
   if (!text || !text.trim()) return;
 
-  if (!apiKey) {
-    throw new Error("Missing NEXT_PUBLIC_ELEVENLABS_API_KEY");
-  }
-
-  if (!voiceId) {
-    throw new Error("Missing NEXT_PUBLIC_VOICE_ID");
+  if (!apiKey || !voiceId) {
+    return speakWithBrowser(text);
   }
 
   const endpoint = `${baseUrl}/${encodeURIComponent(voiceId)}`;
@@ -44,7 +57,8 @@ export async function speakWithElevenLabs(text) {
     } catch {
       // keep raw text body
     }
-    throw new Error(`ElevenLabs error ${response.status}: ${parsedBody || "Unknown error"}`);
+    console.warn(`ElevenLabs error ${response.status}: ${parsedBody || "Unknown error"}. Falling back to browser TTS.`);
+    return speakWithBrowser(text);
   }
 
   const audioBlob = await response.blob();
@@ -59,12 +73,13 @@ export async function speakWithElevenLabs(text) {
     };
     audio.onerror = () => {
       URL.revokeObjectURL(audioUrl);
-      reject(new Error("Audio playback failed"));
+      speakWithBrowser(text).then(resolve).catch(reject);
     };
 
     audio.play().catch((err) => {
       URL.revokeObjectURL(audioUrl);
-      reject(err);
+      console.warn("Audio playback failed for ElevenLabs response. Falling back to browser TTS.", err);
+      speakWithBrowser(text).then(resolve).catch(reject);
     });
   });
 }

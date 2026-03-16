@@ -19,6 +19,7 @@ SCREEN_HEIGHT = 813
 class NovaRunner:
     def __init__(self, ws: WebSocket, session_id: str, plan: dict):
         self.ws = ws
+        self.session_id = session_id
         self.steps = plan.get("steps", [])
         self.config = Config()
         self.loop = asyncio.get_event_loop()
@@ -99,6 +100,14 @@ class NovaRunner:
                         continue
                     try:
                         nova.act(query)
+                        self._send(
+                            {
+                                "type": "step",
+                                "step": i,
+                                "total": len(self.steps),
+                                "query": query,
+                            }
+                        )
                     except (ActAgentError, ActClientError) as e:
                         self._send({"type": "error", "step": i, "message": str(e), "retriable": True})
                         break

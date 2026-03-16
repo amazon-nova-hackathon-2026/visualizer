@@ -34,6 +34,10 @@ export default function VideoPanel({ sessionId, prompt }) {
 
     ws.onmessage = async (event) => {
       const msg = JSON.parse(event.data);
+      const totalFromMsg = Number(msg.total ?? msg.total_steps ?? step.total ?? 0);
+      const stepIndex = Number(msg.step ?? msg.current_step ?? 0);
+      const stepCurrent = Number.isFinite(stepIndex) ? stepIndex + 1 : step.current;
+      const narrationText = (msg.narration ?? msg.text ?? "").trim();
 
       switch (msg.type) {
         case "planning":
@@ -42,7 +46,18 @@ export default function VideoPanel({ sessionId, prompt }) {
 
         case "plan":
           setStatus("running");
-          setStep({ current: 0, total: msg.total_steps });
+          setStep({ current: 0, total: Number(msg.total_steps ?? 0) });
+          break;
+
+        case "step":
+          setStatus("running");
+          setStep((prev) => ({
+            current: stepCurrent,
+            total: totalFromMsg || prev.total,
+          }));
+          if (!narrationText && msg.query) {
+            setNarration(msg.query);
+          }
           break;
 
         case "frame": {
@@ -56,10 +71,18 @@ export default function VideoPanel({ sessionId, prompt }) {
         }
 
         case "narration": {
-          setNarration(msg.narration);
-          setStep({ current: msg.step + 1, total: msg.total });
+          setStatus("running");
+          if (narrationText) {
+            setNarration(narrationText);
+          }
+          setStep((prev) => ({
+            current: stepCurrent,
+            total: totalFromMsg || prev.total,
+          }));
           try {
-            await speakWithElevenLabs(msg.narration);
+            if (narrationText) {
+              await speakWithElevenLabs(narrationText);
+            }
           } catch (e) {
             console.warn("TTS failed, sending ACK anyway:", e);
             setTtsError(true);
