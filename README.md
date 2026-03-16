@@ -1,7 +1,7 @@
 # ThinkOva
 > Ask a question. Watch the web teach you.
 
-![ThinkOva](/visualizer/apps/frontend/public/thinkova.png)
+![ThinkOva](apps/frontend/public/thinkova.png)
 
 > **Image disclaimer:** The banner above was generated using an AI image generation
 > tool for presentation purposes only.
@@ -41,7 +41,7 @@ No links. No walls of text. Just watch and listen.
 
 ## Architecture
 
-![ThinkOva Architecture](/visualizer/apps/frontend/public/architecture%20diagram.png)
+![ThinkOva Architecture](apps/frontend/public/architecture%20diagram.png)
 
 ---
 
